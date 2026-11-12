@@ -34,7 +34,7 @@ export const mockSales: Sale[] = [
     total: 124.95,
     customerName: 'Walk-in',
     userId: 'u1',
-    username: 'employee',
+    username: 'a',
     createdAt: daysAgo(0),
   },
   {
@@ -43,15 +43,15 @@ export const mockSales: Sale[] = [
     total: 10.47,
     customerName: 'Maria',
     userId: 'u1',
-    username: 'employee',
+    username: 'a',
     createdAt: daysAgo(1),
   },
 ]
 
 export const mockMovements: StockMovement[] = [
-  { id: 'm1', productId: 'p1', productName: 'Dog Food Premium 10kg', type: 'IN', quantity: 20, reason: 'Supplier delivery', userId: 'u1', username: 'employee', createdAt: daysAgo(7) },
-  { id: 'm2', productId: 'p1', productName: 'Dog Food Premium 10kg', type: 'SALE', quantity: -5, reason: 'Sale s1', userId: 'u1', username: 'employee', createdAt: daysAgo(0) },
-  { id: 'm3', productId: 'p5', productName: 'Chew Toy Bone', type: 'OUT', quantity: -2, reason: 'Damaged goods', userId: 'u1', username: 'employee', createdAt: daysAgo(3) },
+  { id: 'm1', productId: 'p1', productName: 'Dog Food Premium 10kg', type: 'IN', quantity: 20, reason: 'Supplier delivery', userId: 'u1', username: 'a', createdAt: daysAgo(7) },
+  { id: 'm2', productId: 'p1', productName: 'Dog Food Premium 10kg', type: 'SALE', quantity: -5, reason: 'Sale s1', userId: 'u1', username: 'a', createdAt: daysAgo(0) },
+  { id: 'm3', productId: 'p5', productName: 'Chew Toy Bone', type: 'OUT', quantity: -2, reason: 'Damaged goods', userId: 'u1', username: 'a', createdAt: daysAgo(3) },
 ]
 
 export const mockAlerts: Alert[] = [
@@ -62,7 +62,7 @@ export const mockAlerts: Alert[] = [
 ]
 
 export const mockAuditLogs: AuditLog[] = [
-  { id: 'l1', userId: 'u1', username: 'employee', action: 'SALE_REGISTERED', entityType: 'Sale', entityId: 's1', details: 'Sale total 124.95', createdAt: daysAgo(0) },
-  { id: 'l2', userId: 'u1', username: 'employee', action: 'STOCK_ADDED', entityType: 'StockMovement', entityId: 'm1', details: '+20 Dog Food Premium 10kg', createdAt: daysAgo(7) },
-  { id: 'l3', userId: 'u2', username: 'manager', action: 'PRODUCT_CREATED', entityType: 'Product', entityId: 'p8', details: 'Puppy Shampoo', createdAt: daysAgo(45) },
+  { id: 'l1', userId: 'u1', username: 'a', action: 'SALE_REGISTERED', entityType: 'Sale', entityId: 's1', details: 'Sale total 124.95', createdAt: daysAgo(0) },
+  { id: 'l2', userId: 'u1', username: 'a', action: 'STOCK_ADDED', entityType: 'StockMovement', entityId: 'm1', details: '+20 Dog Food Premium 10kg', createdAt: daysAgo(7) },
+  { id: 'l3', userId: 'u2', username: 'aa', action: 'PRODUCT_CREATED', entityType: 'Product', entityId: 'p8', details: 'Puppy Shampoo', createdAt: daysAgo(45) },
 ]

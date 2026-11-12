@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
+import { useAuth } from '../context/AuthContext'
 import { ErrorText, inputCls } from '../components/ui'
 
 export default function Login() {

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api } from '../api/client'
-import { useAuth } from '../auth/AuthContext'
+import { useAuth } from '../context/AuthContext'
 import { Badge, Card, ErrorText, PageHeader, Spinner, btnCls, btnSecondaryCls, inputCls } from '../components/ui'
 import type { MovementType, Product, StockMovement } from '../types'
 
