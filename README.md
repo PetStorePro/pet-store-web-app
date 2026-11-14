@@ -1,32 +1,38 @@
-# React + TypeScript + Vite
+# PetStore Pro
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+PetStore Pro is a local pet-store inventory and sales application. The repository contains a React/Vite frontend and a Spring Boot API. Docker Compose starts the frontend, API, and PostgreSQL database together.
 
-Currently, two official plugins are available:
+## Run the complete app locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Requirements: Docker Desktop with the Docker engine running.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```powershell
+Copy-Item .env.example .env
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Edit `.env` and replace `POSTGRES_PASSWORD` with a unique local value, then run:
+
+```powershell
+docker compose up --build
+```
+
+Open <http://localhost:8081>. The first run downloads build and runtime images. PostgreSQL data is kept in a named Docker volume when the stack is stopped.
+
+Stop the stack with `Ctrl+C`, then run `docker compose down`. To delete the local database data as well, run `docker compose down --volumes`.
+
+The frontend currently uses mock API data; the real API is being implemented incrementally. The Compose setup is intended to keep working as API endpoints are added.
+
+## Run the frontend separately
+
+Requirements: Node.js and npm.
+
+```powershell
+npm ci
+npm run dev
+```
+
+For local frontend development, `VITE_API_BASE_URL` in `.env` defaults to `http://localhost:8080`.
+
+## Backend
+
+The backend is in `backend/` and targets Java 21. When running it outside Docker, configure the datasource using the `SPRING_DATASOURCE_*` environment variables. Docker users do not need to install Java, Maven, Node.js, or PostgreSQL separately.
