@@ -18,21 +18,18 @@ import type {
 import { API_BASE_URL } from './endpoints'
 import {
   mockAlerts,
-  mockAuditLogs,
   mockProducts,
   mockSales,
 } from './mockData'
 
 /**
- * API client. Login uses the real backend; the remaining methods still use
- * in-memory mock data until their backend endpoints are implemented.
+ * API client for the authenticated PetStore backend.
  */
 
 // In-memory stores seeded from mock data (mutated per session)
 const products = [...mockProducts]
 const sales = [...mockSales]
 const alerts = [...mockAlerts]
-const auditLogs = [...mockAuditLogs]
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms))
 
@@ -350,11 +347,14 @@ export const api = {
     page?: number
     pageSize?: number
   }): Promise<Paginated<AuditLog>> {
-    await delay(200)
-    let items = [...auditLogs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    if (params?.userId) items = items.filter((l) => l.userId === params.userId)
-    if (params?.action) items = items.filter((l) => l.action === params.action)
-    return paginate(items, params?.page, params?.pageSize)
+    const query = new URLSearchParams()
+    if (params?.userId) query.set('userId', params.userId)
+    if (params?.action) query.set('action', params.action)
+    if (params?.page !== undefined) query.set('page', String(params.page))
+    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/audit-logs${suffix}`)
+    return response.json() as Promise<Paginated<AuditLog>>
   },
 
   /** GET /api/dashboard/summary — MANAGER only */

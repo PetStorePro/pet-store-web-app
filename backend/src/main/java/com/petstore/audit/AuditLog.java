@@ -60,4 +60,32 @@ public class AuditLog {
             createdAt = Instant.now();
         }
     }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public AppUser getUser() {
+        return user;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public String getEntityType() {
+        return entityType;
+    }
+
+    public String getEntityId() {
+        return entityId;
+    }
+
+    public String getDetails() {
+        return details;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }
