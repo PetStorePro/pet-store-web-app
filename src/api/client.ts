@@ -17,19 +17,15 @@ import type {
 } from '../types'
 import { API_BASE_URL } from './endpoints'
 import {
-  mockAlerts,
   mockProducts,
-  mockSales,
 } from './mockData'
 
 /**
  * API client for the authenticated PetStore backend.
  */
 
-// In-memory stores seeded from mock data (mutated per session)
+// Mock product catalog retained only for the legacy mock-list method.
 const products = [...mockProducts]
-const sales = [...mockSales]
-const alerts = [...mockAlerts]
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms))
 
@@ -359,29 +355,7 @@ export const api = {
 
   /** GET /api/dashboard/summary — MANAGER only */
   async dashboardSummary(): Promise<DashboardSummary> {
-    await delay(300)
-    const today = new Date().toDateString()
-    const salesToday = sales.filter((s) => new Date(s.createdAt).toDateString() === today)
-    const unitsByProduct = new Map<string, { name: string; units: number }>()
-    for (const s of sales) {
-      for (const item of s.items) {
-        const e = unitsByProduct.get(item.productId) ?? { name: item.productName, units: 0 }
-        e.units += item.quantity
-        unitsByProduct.set(item.productId, e)
-      }
-    }
-    return {
-      totalProducts: products.length,
-      totalStockValue: +products.reduce((sum, p) => sum + p.stock * p.price, 0).toFixed(2),
-      salesToday: salesToday.length,
-      lowStockCount: products.filter((p) => p.stock <= p.lowStockThreshold).length,
-      expiringCount: products.filter((p) => p.category === 'MEDICINE' && p.expiryDate && new Date(p.expiryDate) < new Date(Date.now() + 30 * 86_400_000)).length,
-      openAlerts: alerts.filter((a) => !a.resolved).length,
-      recentSales: sales.slice(0, 5),
-      topProducts: [...unitsByProduct.entries()]
-        .map(([productId, v]) => ({ productId, productName: v.name, unitsSold: v.units }))
-        .sort((a, b) => b.unitsSold - a.unitsSold)
-        .slice(0, 5),
-    }
+    const response = await authenticatedFetch('/api/dashboard/summary')
+    return response.json() as Promise<DashboardSummary>
   },
 }

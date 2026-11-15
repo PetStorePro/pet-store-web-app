@@ -13,7 +13,7 @@ public record SaleResponse(
         String username,
         Instant createdAt) {
 
-    static SaleResponse from(Sale sale) {
+    public static SaleResponse from(Sale sale) {
         return new SaleResponse(
                 sale.getId().toString(),
                 sale.getItems().stream().map(SaleItemResponse::from).toList(),

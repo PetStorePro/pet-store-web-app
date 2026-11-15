@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 
 import jakarta.persistence.LockModeType;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,4 +31,12 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT product FROM Product product WHERE product.id = :id")
     Optional<Product> findForUpdate(@Param("id") UUID id);
+
+    @Query("SELECT COALESCE(SUM(product.price * product.stock), 0) FROM Product product")
+    BigDecimal totalStockValue();
+
+    @Query("SELECT COUNT(product) FROM Product product WHERE product.stock <= product.lowStockThreshold")
+    long countLowStock();
+
+    long countByCategoryAndExpiryDateLessThanEqual(ProductCategory category, LocalDate expiryDate);
 }

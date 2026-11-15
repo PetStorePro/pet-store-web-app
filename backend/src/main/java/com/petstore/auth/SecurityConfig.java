@@ -99,6 +99,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("MANAGER", "DEVOPS")
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAnyRole("MANAGER", "DEVOPS")
                         .requestMatchers("/api/audit-logs/**").hasRole("MANAGER")
+                        .requestMatchers("/api/dashboard/**").hasRole("MANAGER")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
