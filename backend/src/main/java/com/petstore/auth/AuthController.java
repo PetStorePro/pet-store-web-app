@@ -3,6 +3,8 @@ package com.petstore.auth;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,6 +25,7 @@ import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Authentication", description = "Issue JWT bearer tokens for the demo employee, manager, and DevOps accounts.")
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
@@ -42,6 +45,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Sign in", description = "Exchange username and password for a JWT. This endpoint does not require authentication.")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         try {
             authenticationManager.authenticate(

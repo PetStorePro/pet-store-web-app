@@ -4,6 +4,9 @@ import com.petstore.products.PaginatedResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -22,6 +25,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/sales")
 @Validated
+@Tag(name = "Sales", description = "Sales history and transactional sales registration.")
+@SecurityRequirement(name = "bearerAuth")
 public class SaleController {
 
     private final SaleService sales;
@@ -31,6 +36,7 @@ public class SaleController {
     }
 
     @GetMapping
+    @Operation(summary = "List sales", description = "Returns newest sales first; optional from/to dates use ISO format yyyy-MM-dd and are inclusive.")
     public PaginatedResponse<SaleResponse> list(
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
@@ -41,6 +47,7 @@ public class SaleController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Register a sale", description = "Checks stock and atomically records the sale, decrements stock, creates a movement, and writes an audit event. Returns HTTP 409 when stock is insufficient.")
     public SaleResponse register(
             @Valid @RequestBody RegisterSaleRequest request,
             @AuthenticationPrincipal Jwt jwt) {

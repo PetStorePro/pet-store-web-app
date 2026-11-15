@@ -3,6 +3,9 @@ package com.petstore.products;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -23,6 +26,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/products")
 @Validated
+@Tag(name = "Products", description = "Search and manage the persistent product catalog.")
+@SecurityRequirement(name = "bearerAuth")
 public class ProductController {
 
     private final ProductService products;
@@ -32,6 +37,7 @@ public class ProductController {
     }
 
     @GetMapping
+    @Operation(summary = "List products", description = "Search by name/description or category. Results are paginated (pageSize maximum 100).")
     public PaginatedResponse<ProductResponse> list(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) ProductCategory category,
@@ -41,12 +47,14 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get a product", description = "Return one product by its UUID.")
     public ProductResponse get(@PathVariable UUID id) {
         return products.get(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Create a product", description = "Requires MANAGER or DEVOPS. The new product starts with zero stock.")
     public ProductResponse create(
             @Valid @RequestBody CreateProductRequest request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -54,6 +62,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Update a product", description = "Requires MANAGER or DEVOPS. Only supplied fields are updated.")
     public ProductResponse update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateProductRequest request,
@@ -63,6 +72,7 @@ public class ProductController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Delete a product", description = "Requires MANAGER or DEVOPS. Removes a product without dependent sales or stock history.")
     public void delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         products.delete(id, UUID.fromString(jwt.getSubject()));
     }

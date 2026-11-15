@@ -1,6 +1,9 @@
 package com.petstore.audit;
 
 import com.petstore.products.PaginatedResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
@@ -14,6 +17,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/audit-logs")
 @Validated
+@Tag(name = "Audit logs", description = "Manager-only, read-only audit history for product, stock, sale, and alert operations.")
+@SecurityRequirement(name = "bearerAuth")
 public class AuditLogController {
 
     private final AuditLogService auditLogs;
@@ -23,6 +28,7 @@ public class AuditLogController {
     }
 
     @GetMapping
+    @Operation(summary = "List audit logs", description = "Returns newest events first. Filter action by substring or by actor user UUID; pageSize maximum is 100.")
     public PaginatedResponse<AuditLogResponse> list(
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) String action,
