@@ -301,10 +301,13 @@ export const api = {
     page?: number
     pageSize?: number
   }): Promise<Paginated<StockMovement>> {
-    await delay(150)
-    let items = [...movements].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    if (params?.productId) items = items.filter((m) => m.productId === params.productId)
-    return paginate(items, params?.page, params?.pageSize)
+    const query = new URLSearchParams()
+    if (params?.productId) query.set('productId', params.productId)
+    if (params?.page !== undefined) query.set('page', String(params.page))
+    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/inventory/movements${suffix}`)
+    return response.json() as Promise<Paginated<StockMovement>>
   },
 
   /**
@@ -313,42 +316,13 @@ export const api = {
    * IN adds stock; OUT removes stock; ADJUSTMENT sets absolute stock.
    */
   async adjustStock(
-    user: User,
     req: { productId: string; type: MovementType; quantity: number; reason?: string },
   ): Promise<StockMovement> {
-    await delay()
-    const product = products.find((p) => p.id === req.productId)
-    if (!product) throw new Error('Product not found')
-    const delta = req.type === 'ADJUSTMENT' ? req.quantity - product.stock : req.type === 'IN' ? req.quantity : -Math.abs(req.quantity)
-    const newStock = req.type === 'ADJUSTMENT' ? req.quantity : product.stock + delta
-    product.stock = newStock
-
-    const movement: StockMovement = {
-      id: nextId('m'),
-      productId: product.id,
-      productName: product.name,
-      type: req.type,
-      quantity: req.type === 'ADJUSTMENT' ? delta : req.type === 'IN' ? req.quantity : -Math.abs(req.quantity),
-      reason: req.reason,
-      userId: user.id,
-      username: user.username,
-      createdAt: now(),
-    }
-    movements.unshift(movement)
-    audit(user, 'STOCK_ADJUSTED', 'StockMovement', movement.id, `${product.name}: ${movement.quantity > 0 ? '+' : ''}${movement.quantity}`)
-    if (newStock < 0) {
-      alerts.unshift({
-        id: nextId('a'),
-        type: 'NEGATIVE_STOCK',
-        productId: product.id,
-        productName: product.name,
-        message: `Negative stock detected: ${product.name} is at ${newStock}`,
-        severity: 'CRITICAL',
-        createdAt: now(),
-        resolved: false,
-      })
-    }
-    return movement
+    const response = await authenticatedFetch('/api/inventory/adjustments', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    })
+    return response.json() as Promise<StockMovement>
   },
 
   /** POST /api/sales — body: RegisterSaleRequest */

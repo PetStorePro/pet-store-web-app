@@ -122,6 +122,10 @@ public class Product {
         return stock;
     }
 
+    public void setStock(int stock) {
+        this.stock = stock;
+    }
+
     public int getLowStockThreshold() {
         return lowStockThreshold;
     }
