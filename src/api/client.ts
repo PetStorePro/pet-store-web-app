@@ -330,18 +330,17 @@ export const api = {
 
   /** GET /api/alerts?type=&resolved= */
   async listAlerts(params?: { type?: Alert['type']; resolved?: boolean }): Promise<Alert[]> {
-    await delay(150)
-    let items = [...alerts].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    if (params?.type) items = items.filter((a) => a.type === params.type)
-    if (params?.resolved !== undefined) items = items.filter((a) => a.resolved === params.resolved)
-    return items
+    const query = new URLSearchParams()
+    if (params?.type) query.set('type', params.type)
+    if (params?.resolved !== undefined) query.set('resolved', String(params.resolved))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/alerts${suffix}`)
+    return response.json() as Promise<Alert[]>
   },
 
   /** PATCH /api/alerts/{id}/resolve */
   async resolveAlert(id: string): Promise<void> {
-    await delay(100)
-    const alert = alerts.find((a) => a.id === id)
-    if (alert) alert.resolved = true
+    await authenticatedFetch(`/api/alerts/${encodeURIComponent(id)}/resolve`, { method: 'PATCH' })
   },
 
   /** GET /api/audit-logs?userId=&action=&page=&pageSize= — MANAGER only */

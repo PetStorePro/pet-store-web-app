@@ -1,5 +1,6 @@
 package com.petstore.sales;
 
+import com.petstore.alerts.AlertService;
 import com.petstore.audit.AuditLog;
 import com.petstore.audit.AuditLogRepository;
 import com.petstore.auth.AppUser;
@@ -36,18 +37,21 @@ public class SaleService {
     private final StockMovementRepository movements;
     private final AppUserRepository users;
     private final AuditLogRepository auditLogs;
+    private final AlertService alerts;
 
     public SaleService(
             SaleRepository sales,
             ProductRepository products,
             StockMovementRepository movements,
             AppUserRepository users,
-            AuditLogRepository auditLogs) {
+            AuditLogRepository auditLogs,
+            AlertService alerts) {
         this.sales = sales;
         this.products = products;
         this.movements = movements;
         this.users = users;
         this.auditLogs = auditLogs;
+        this.alerts = alerts;
     }
 
     public PaginatedResponse<SaleResponse> list(LocalDate from, LocalDate to, int page, int pageSize) {
@@ -91,6 +95,7 @@ public class SaleService {
 
         product.setStock(product.getStock() - request.quantity());
         products.save(product);
+        alerts.refreshForProduct(product);
         BigDecimal total = product.getPrice().multiply(BigDecimal.valueOf(request.quantity()));
         String customerName = request.customerName() == null || request.customerName().isBlank()
                 ? null

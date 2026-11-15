@@ -1,5 +1,6 @@
 package com.petstore.inventory;
 
+import com.petstore.alerts.AlertService;
 import com.petstore.audit.AuditLog;
 import com.petstore.audit.AuditLogRepository;
 import com.petstore.auth.AppUser;
@@ -25,16 +26,19 @@ public class InventoryService {
     private final StockMovementRepository movements;
     private final AppUserRepository users;
     private final AuditLogRepository auditLogs;
+    private final AlertService alerts;
 
     public InventoryService(
             ProductRepository products,
             StockMovementRepository movements,
             AppUserRepository users,
-            AuditLogRepository auditLogs) {
+            AuditLogRepository auditLogs,
+            AlertService alerts) {
         this.products = products;
         this.movements = movements;
         this.users = users;
         this.auditLogs = auditLogs;
+        this.alerts = alerts;
     }
 
     public PaginatedResponse<StockMovementResponse> list(UUID productId, int page, int pageSize) {
@@ -83,6 +87,7 @@ public class InventoryService {
         }
 
         products.save(product);
+        alerts.refreshForProduct(product);
         StockMovement saved = movements.save(new StockMovement(
                 product,
                 request.type(),

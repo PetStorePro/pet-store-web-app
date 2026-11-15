@@ -1,5 +1,6 @@
 package com.petstore.products;
 
+import com.petstore.alerts.AlertService;
 import com.petstore.audit.AuditLog;
 import com.petstore.audit.AuditLogRepository;
 import com.petstore.auth.AppUser;
@@ -22,14 +23,17 @@ public class ProductService {
     private final ProductRepository products;
     private final AppUserRepository users;
     private final AuditLogRepository auditLogs;
+    private final AlertService alerts;
 
     public ProductService(
             ProductRepository products,
             AppUserRepository users,
-            AuditLogRepository auditLogs) {
+            AuditLogRepository auditLogs,
+            AlertService alerts) {
         this.products = products;
         this.users = users;
         this.auditLogs = auditLogs;
+        this.alerts = alerts;
     }
 
     public PaginatedResponse<ProductResponse> list(
@@ -65,6 +69,7 @@ public class ProductService {
                 request.expiryDate(),
                 request.lowStockThreshold());
         Product saved = products.save(product);
+        alerts.refreshForProduct(saved);
         auditLogs.save(new AuditLog(actor, "PRODUCT_CREATED", "Product", saved.getId().toString(), saved.getName()));
         return ProductResponse.from(saved);
     }
@@ -75,6 +80,9 @@ public class ProductService {
         Product product = findProduct(id);
 
         if (request.getName() != null) {
+            if (request.getName().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product name must not be blank.");
+            }
             product.setName(request.getName().trim());
         }
         if (request.getDescription() != null) {
@@ -94,6 +102,7 @@ public class ProductService {
         }
 
         Product saved = products.save(product);
+        alerts.refreshForProduct(saved);
         auditLogs.save(new AuditLog(actor, "PRODUCT_UPDATED", "Product", saved.getId().toString(), saved.getName()));
         return ProductResponse.from(saved);
     }
