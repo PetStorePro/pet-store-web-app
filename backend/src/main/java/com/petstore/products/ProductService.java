@@ -5,15 +5,18 @@ import com.petstore.audit.AuditLog;
 import com.petstore.audit.AuditLogRepository;
 import com.petstore.auth.AppUser;
 import com.petstore.auth.AppUserRepository;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.UUID;
 
 @Service
@@ -42,9 +45,21 @@ public class ProductService {
             int page,
             int pageSize) {
         String normalizedSearch = search == null || search.isBlank() ? null : search.trim();
-        Page<Product> result = products.search(
-                normalizedSearch,
-                category,
+        Specification<Product> criteria = (root, query, builder) -> {
+            var predicates = new ArrayList<Predicate>();
+            if (category != null) {
+                predicates.add(builder.equal(root.get("category"), category));
+            }
+            if (normalizedSearch != null) {
+                String pattern = "%" + normalizedSearch.toLowerCase() + "%";
+                predicates.add(builder.or(
+                        builder.like(builder.lower(root.get("name")), pattern),
+                        builder.like(builder.lower(root.get("description")), pattern)));
+            }
+            return builder.and(predicates.toArray(Predicate[]::new));
+        };
+        Page<Product> result = products.findAll(
+                criteria,
                 PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.ASC, "name")));
 
         return new PaginatedResponse<>(

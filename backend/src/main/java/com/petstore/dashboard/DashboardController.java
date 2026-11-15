@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/dashboard")
-@Tag(name = "Dashboard", description = "Manager-only operational aggregates from persistent data.")
+@Tag(name = "Dashboard", description = "Manager and DevOps operational aggregates from persistent data.")
 @SecurityRequirement(name = "bearerAuth")
 public class DashboardController {
 
@@ -20,7 +20,7 @@ public class DashboardController {
     }
 
     @GetMapping("/summary")
-    @Operation(summary = "Get dashboard summary", description = "Returns product and stock totals, today's sales, low-stock and expiring counts, open alerts, recent sales, and top products.")
+    @Operation(summary = "Get dashboard summary", description = "Requires MANAGER or DEVOPS. Returns product and stock totals, today's sales, low-stock and expiring counts, open alerts, recent sales, and top products.")
     public DashboardSummaryResponse summary() {
         return dashboard.summary();
     }
