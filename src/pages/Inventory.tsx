@@ -31,7 +31,7 @@ export default function Inventory() {
     setLoading(true)
     try {
       const [p, m] = await Promise.all([
-        api.listProducts({ pageSize: 100 }),
+        api.listMockProducts({ pageSize: 100 }),
         api.listMovements({ productId: filterProduct || undefined, pageSize: 100 }),
       ])
       setProducts(p.items)

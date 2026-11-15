@@ -59,6 +59,92 @@ function paginate<T>(items: T[], page = 1, pageSize = 50): Paginated<T> {
   return { items: items.slice(start, start + pageSize), total: items.length, page, pageSize }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object'
+}
+
+async function authenticatedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = localStorage.getItem('petstore_token')
+  if (!token) throw new Error('You must sign in to access products')
+
+  const headers = new Headers(init.headers)
+  headers.set('Authorization', `Bearer ${token}`)
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
+  if (!response.ok) {
+    const body = await response.text()
+    let message = `Request failed (HTTP ${response.status})`
+    if (body) {
+      try {
+        const result: unknown = JSON.parse(body)
+        if (isRecord(result)) {
+          for (const key of ['detail', 'message', 'title']) {
+            if (key in result && typeof result[key] === 'string') {
+              message = result[key]
+              break
+            }
+          }
+        }
+      } catch {
+        message = body
+      }
+    }
+    throw new Error(message)
+  }
+  return response
+}
+
+function isProductCategory(value: unknown): value is ProductCategory {
+  return value === 'FOOD' || value === 'MEDICINE' || value === 'TOY' || value === 'ACCESSORY' || value === 'CARE'
+}
+
+function parseProduct(value: unknown): Product {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('id' in value) ||
+    typeof value.id !== 'string' ||
+    !('name' in value) ||
+    typeof value.name !== 'string' ||
+    !('description' in value) ||
+    typeof value.description !== 'string' ||
+    !('category' in value) ||
+    !isProductCategory(value.category) ||
+    !('price' in value) ||
+    typeof value.price !== 'number' ||
+    !('stock' in value) ||
+    typeof value.stock !== 'number' ||
+    !('lowStockThreshold' in value) ||
+    typeof value.lowStockThreshold !== 'number' ||
+    !('createdAt' in value) ||
+    typeof value.createdAt !== 'string' ||
+    !('expiryDate' in value) ||
+    (value.expiryDate !== null && typeof value.expiryDate !== 'string')
+  ) {
+    throw new Error('The server returned an invalid product')
+  }
+  return value as Product
+}
+
+function parseProductPage(value: unknown): Paginated<Product> {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('items' in value) ||
+    !Array.isArray(value.items) ||
+    !('total' in value) ||
+    typeof value.total !== 'number' ||
+    !('page' in value) ||
+    typeof value.page !== 'number' ||
+    !('pageSize' in value) ||
+    typeof value.pageSize !== 'number'
+  ) {
+    throw new Error('The server returned an invalid product list')
+  }
+  return { items: value.items.map(parseProduct), total: value.total, page: value.page, pageSize: value.pageSize }
+}
+
 function isRole(value: unknown): value is User['role'] {
   return value === 'EMPLOYEE' || value === 'MANAGER' || value === 'DEVOPS'
 }
@@ -153,6 +239,23 @@ export const api = {
     page?: number
     pageSize?: number
   }): Promise<Paginated<Product>> {
+    const query = new URLSearchParams()
+    if (params?.search) query.set('search', params.search)
+    if (params?.category) query.set('category', params.category)
+    if (params?.page !== undefined) query.set('page', String(params.page))
+    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/products${suffix}`)
+    return parseProductPage(await response.json())
+  },
+
+  /** Mock catalog retained until inventory and sales are connected to the backend. */
+  async listMockProducts(params?: {
+    search?: string
+    category?: ProductCategory
+    page?: number
+    pageSize?: number
+  }): Promise<Paginated<Product>> {
     await delay(150)
     let items = [...products].sort((a, b) => a.name.localeCompare(b.name))
     if (params?.search) {
@@ -165,43 +268,31 @@ export const api = {
 
   /** GET /api/products/{id} */
   async getProduct(id: string): Promise<Product> {
-    await delay(100)
-    const p = products.find((x) => x.id === id)
-    if (!p) throw new Error('Product not found')
-    return p
+    const response = await authenticatedFetch(`/api/products/${encodeURIComponent(id)}`)
+    return parseProduct(await response.json())
   },
 
   /** POST /api/products — body: CreateProductRequest (MANAGER/DEVOPS) */
-  async createProduct(user: User, req: CreateProductRequest): Promise<Product> {
-    await delay()
-    const product: Product = {
-      id: nextId('p'),
-      ...req,
-      stock: 0,
-      createdAt: now(),
-    }
-    products.unshift(product)
-    audit(user, 'PRODUCT_CREATED', 'Product', product.id, product.name)
-    return product
+  async createProduct(req: CreateProductRequest): Promise<Product> {
+    const response = await authenticatedFetch('/api/products', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    })
+    return parseProduct(await response.json())
   },
 
   /** PUT /api/products/{id} — body: UpdateProductRequest (MANAGER/DEVOPS) */
-  async updateProduct(user: User, id: string, req: UpdateProductRequest): Promise<Product> {
-    await delay()
-    const idx = products.findIndex((x) => x.id === id)
-    if (idx === -1) throw new Error('Product not found')
-    products[idx] = { ...products[idx], ...req }
-    audit(user, 'PRODUCT_UPDATED', 'Product', id, products[idx].name)
-    return products[idx]
+  async updateProduct(id: string, req: UpdateProductRequest): Promise<Product> {
+    const response = await authenticatedFetch(`/api/products/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(req),
+    })
+    return parseProduct(await response.json())
   },
 
   /** DELETE /api/products/{id} (MANAGER/DEVOPS) */
-  async deleteProduct(user: User, id: string): Promise<void> {
-    await delay()
-    const idx = products.findIndex((x) => x.id === id)
-    if (idx === -1) throw new Error('Product not found')
-    const [removed] = products.splice(idx, 1)
-    audit(user, 'PRODUCT_DELETED', 'Product', id, removed.name)
+  async deleteProduct(id: string): Promise<void> {
+    await authenticatedFetch(`/api/products/${encodeURIComponent(id)}`, { method: 'DELETE' })
   },
 
   /** GET /api/inventory/movements?productId=&page=&pageSize= */

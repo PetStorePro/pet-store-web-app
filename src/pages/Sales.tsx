@@ -22,7 +22,7 @@ export default function Sales() {
   const load = async () => {
     setLoading(true)
     try {
-      const [p, s] = await Promise.all([api.listProducts({ pageSize: 100 }), api.listSales({ pageSize: 100 })])
+      const [p, s] = await Promise.all([api.listMockProducts({ pageSize: 100 }), api.listSales({ pageSize: 100 })])
       setProducts(p.items)
       setSales(s.items)
     } catch (e) {

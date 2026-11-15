@@ -30,7 +30,9 @@ Open <http://localhost:8081>. The web app is bound to this computer only. The fi
 
 Stop the stack with `Ctrl+C`, then run `docker compose down`. To delete the local database data as well, run `docker compose down --volumes`.
 
-Login uses the backend API and issues JWTs. The three local demo accounts are `a` (employee), `aa` (manager), and `aaa` (DevOps), all with password `a`. These intentionally weak credentials are for local demonstration only: keep the app off public networks and disable `DEMO_USERS_ENABLED` outside local development. Product, inventory, sales, alerts, audit-log, and dashboard data still use frontend mock data until their endpoints are implemented.
+Login uses the backend API and issues JWTs. The three local demo accounts are `a` (employee), `aa` (manager), and `aaa` (DevOps), all with password `a`. These intentionally weak credentials are for local demonstration only: keep the app off public networks and disable `DEMO_USERS_ENABLED` outside local development.
+
+The Products page reads and writes PostgreSQL through the backend. Employees can view products; managers and DevOps users can create, edit, and delete them. Product changes are recorded in the database audit log. A new database starts with no products, so sign in as `aa` or `aaa` and add products from the Products page. Inventory, sales, alerts, the audit-log page, and the dashboard still use frontend mock data; Inventory and Sales retain their own mock product catalog for now.
 
 ## Run the frontend separately
 

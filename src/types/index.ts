@@ -31,7 +31,7 @@ export interface Product {
   category: ProductCategory
   price: number
   /** ISO date — used for expiring-medicine alerts */
-  expiryDate?: string
+  expiryDate?: string | null
   /** current stock level */
   stock: number
   /** stock level at/below which a low-stock alert fires */
@@ -48,7 +48,9 @@ export interface CreateProductRequest {
   lowStockThreshold: number
 }
 
-export type UpdateProductRequest = Partial<CreateProductRequest>
+export type UpdateProductRequest = Partial<Omit<CreateProductRequest, 'expiryDate'>> & {
+  expiryDate?: string | null
+}
 
 export type MovementType = 'IN' | 'OUT' | 'SALE' | 'ADJUSTMENT'
 

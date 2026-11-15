@@ -95,6 +95,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/prometheus").hasRole("DEVOPS")
+                        .requestMatchers(HttpMethod.POST, "/api/products").hasAnyRole("MANAGER", "DEVOPS")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("MANAGER", "DEVOPS")
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAnyRole("MANAGER", "DEVOPS")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
