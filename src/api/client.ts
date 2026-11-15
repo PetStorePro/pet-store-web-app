@@ -19,7 +19,6 @@ import { API_BASE_URL } from './endpoints'
 import {
   mockAlerts,
   mockAuditLogs,
-  mockMovements,
   mockProducts,
   mockSales,
 } from './mockData'
@@ -32,27 +31,10 @@ import {
 // In-memory stores seeded from mock data (mutated per session)
 const products = [...mockProducts]
 const sales = [...mockSales]
-const movements = [...mockMovements]
 const alerts = [...mockAlerts]
 const auditLogs = [...mockAuditLogs]
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms))
-let idSeq = 1000
-const nextId = (prefix: string) => `${prefix}${++idSeq}`
-const now = () => new Date().toISOString()
-
-function audit(user: User, action: string, entityType: string, entityId?: string, details?: string) {
-  auditLogs.unshift({
-    id: nextId('l'),
-    userId: user.id,
-    username: user.username,
-    action,
-    entityType,
-    entityId,
-    details,
-    createdAt: now(),
-  })
-}
 
 function paginate<T>(items: T[], page = 1, pageSize = 50): Paginated<T> {
   const start = (page - 1) * pageSize
@@ -326,45 +308,24 @@ export const api = {
   },
 
   /** POST /api/sales — body: RegisterSaleRequest */
-  async registerSale(user: User, req: RegisterSaleRequest): Promise<Sale> {
-    await delay()
-    const product = products.find((p) => p.id === req.productId)
-    if (!product) throw new Error('Product not found')
-    if (product.stock < req.quantity) throw new Error(`Not enough stock for ${product.name} (available: ${product.stock})`)
-
-    product.stock -= req.quantity
-    const sale: Sale = {
-      id: nextId('s'),
-      items: [{ productId: product.id, productName: product.name, quantity: req.quantity, unitPrice: product.price }],
-      total: +(product.price * req.quantity).toFixed(2),
-      customerName: req.customerName,
-      userId: user.id,
-      username: user.username,
-      createdAt: now(),
-    }
-    sales.unshift(sale)
-    movements.unshift({
-      id: nextId('m'),
-      productId: product.id,
-      productName: product.name,
-      type: 'SALE',
-      quantity: -req.quantity,
-      reason: `Sale ${sale.id}`,
-      userId: user.id,
-      username: user.username,
-      createdAt: sale.createdAt,
+  async registerSale(req: RegisterSaleRequest): Promise<Sale> {
+    const response = await authenticatedFetch('/api/sales', {
+      method: 'POST',
+      body: JSON.stringify(req),
     })
-    audit(user, 'SALE_REGISTERED', 'Sale', sale.id, `Total ${sale.total}`)
-    return sale
+    return response.json() as Promise<Sale>
   },
 
   /** GET /api/sales?from=&to=&page=&pageSize= */
   async listSales(params?: { from?: string; to?: string; page?: number; pageSize?: number }): Promise<Paginated<Sale>> {
-    await delay(150)
-    let items = [...sales].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    if (params?.from) items = items.filter((s) => s.createdAt >= params.from!)
-    if (params?.to) items = items.filter((s) => s.createdAt <= params.to!)
-    return paginate(items, params?.page, params?.pageSize)
+    const query = new URLSearchParams()
+    if (params?.from) query.set('from', params.from)
+    if (params?.to) query.set('to', params.to)
+    if (params?.page !== undefined) query.set('page', String(params.page))
+    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/sales${suffix}`)
+    return response.json() as Promise<Paginated<Sale>>
   },
 
   /** GET /api/alerts?type=&resolved= */
