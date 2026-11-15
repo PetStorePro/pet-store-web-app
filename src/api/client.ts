@@ -15,24 +15,21 @@ import type {
   UpdateProductRequest,
   User,
 } from '../types'
+import { API_BASE_URL } from './endpoints'
 import {
   mockAlerts,
   mockAuditLogs,
   mockMovements,
   mockProducts,
   mockSales,
-  mockUsers,
 } from './mockData'
 
 /**
- * Mock API client.
- * Every method mirrors a real REST endpoint (see src/api/endpoints.ts).
- * To switch to the real backend, replace the bodies with fetch() calls
- * against API_BASE_URL — the signatures stay identical.
+ * API client. Login uses the real backend; the remaining methods still use
+ * in-memory mock data until their backend endpoints are implemented.
  */
 
 // In-memory stores seeded from mock data (mutated per session)
-const users = [...mockUsers]
 const products = [...mockProducts]
 const sales = [...mockSales]
 const movements = [...mockMovements]
@@ -62,23 +59,40 @@ function paginate<T>(items: T[], page = 1, pageSize = 50): Paginated<T> {
   return { items: items.slice(start, start + pageSize), total: items.length, page, pageSize }
 }
 
-function generateToken(user: User): string {
-  // Fake JWT — real backend issues a signed JWT via POST /api/auth/login
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-  const payload = btoa(
-    JSON.stringify({ sub: user.id, username: user.username, role: user.role, exp: Date.now() + 3600_000 }),
-  )
-  return `${header}.${payload}.mocksignature`
+function isRole(value: unknown): value is User['role'] {
+  return value === 'EMPLOYEE' || value === 'MANAGER' || value === 'DEVOPS'
 }
 
 export function currentUser(): User | null {
   const raw = localStorage.getItem('petstore_token')
   if (!raw) return null
   try {
-    const payload = JSON.parse(atob(raw.split('.')[1]))
-    const user = users.find((u) => u.id === payload.sub)
-    return user ?? null
+    const encodedPayload = raw.split('.')[1]
+    if (!encodedPayload) throw new Error('Invalid token')
+    const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/')
+    const payload: unknown = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')))
+    if (!payload || typeof payload !== 'object') throw new Error('Invalid token')
+
+    const claims = payload as Record<string, unknown>
+    if (
+      typeof claims.sub !== 'string' ||
+      typeof claims.username !== 'string' ||
+      typeof claims.fullName !== 'string' ||
+      !isRole(claims.role) ||
+      typeof claims.exp !== 'number' ||
+      claims.exp <= Math.floor(Date.now() / 1000)
+    ) {
+      throw new Error('Invalid or expired token')
+    }
+
+    return {
+      id: claims.sub,
+      username: claims.username,
+      fullName: claims.fullName,
+      role: claims.role,
+    }
   } catch {
+    localStorage.removeItem('petstore_token')
     return null
   }
 }
@@ -86,14 +100,45 @@ export function currentUser(): User | null {
 export const api = {
   /** POST /api/auth/login — body: LoginRequest */
   async login(req: LoginRequest): Promise<AuthResponse> {
-    await delay()
-    const user = users.find(
-      (u) => u.username === req.username && req.password === 'a',
-    )
-    if (!user) throw new Error('Invalid credentials')
-    const token = generateToken(user)
-    localStorage.setItem('petstore_token', token)
-    return { token, user }
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+
+    let result: unknown
+    try {
+      result = await response.json()
+    } catch {
+      throw new Error(`Login failed (HTTP ${response.status})`)
+    }
+
+    if (!response.ok) {
+      const message =
+        result && typeof result === 'object' && 'message' in result && typeof result.message === 'string'
+          ? result.message
+          : `Login failed (HTTP ${response.status})`
+      throw new Error(message)
+    }
+
+    if (!result || typeof result !== 'object' || !('token' in result) || !('user' in result)) {
+      throw new Error('The server returned an invalid login response')
+    }
+
+    const auth = result as AuthResponse
+    if (
+      typeof auth.token !== 'string' ||
+      !auth.user ||
+      typeof auth.user.id !== 'string' ||
+      typeof auth.user.username !== 'string' ||
+      typeof auth.user.fullName !== 'string' ||
+      !isRole(auth.user.role)
+    ) {
+      throw new Error('The server returned an invalid login response')
+    }
+
+    localStorage.setItem('petstore_token', auth.token)
+    return auth
   },
 
   /** POST /api/auth/logout (client-side: discard token) */
