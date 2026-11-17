@@ -27,7 +27,7 @@ Source contract: `src/api/endpoints.ts` (frontend) and `src/types/index.ts`.
 
 | Method | Path | Params / Body | Response |
 |---|---|---|---|
-| GET | `/api/products` | `?search=&category=&page=&pageSize=` | `Paginated<Product>` |
+| GET | `/api/products` | `?search=&category=&lowStockOnly=&page=&pageSize=` | `Paginated<Product>` |
 | GET | `/api/products/{id}` | — | `Product` |
 | POST | `/api/products` | `CreateProductRequest` | `Product` |
 | PUT | `/api/products/{id}` | `UpdateProductRequest` | `Product` |
@@ -48,6 +48,8 @@ Source contract: `src/api/endpoints.ts` (frontend) and `src/types/index.ts`.
   createdAt: string
 }
 ```
+
+`lowStockOnly` is an optional boolean (default `false`). When `true`, only products with `stock <= lowStockThreshold` are returned. It combines with search and category filters before pagination and counting.
 
 **CreateProductRequest:** `{ name, description, category, price, expiryDate?, lowStockThreshold }`
 

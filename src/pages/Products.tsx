@@ -16,6 +16,7 @@ export default function Products() {
 
   const [items, setItems] = useState<Product[]>([])
   const [search, setSearch] = useState('')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
   const [category, setCategory] = useState<ProductCategory | ''>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +32,7 @@ export default function Products() {
       const res = await api.listProducts({
         search: search || undefined,
         category: category || undefined,
+        lowStockOnly,
         pageSize: 100,
       })
       setItems(res.items)
@@ -41,7 +43,7 @@ export default function Products() {
     }
   }
 
-  useEffect(() => { load() }, [search, category]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [search, category, lowStockOnly]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openNew = () => { setForm(emptyForm); setEditing('new') }
   const openEdit = (p: Product) => {
@@ -88,12 +90,16 @@ export default function Products() {
 
       <ErrorText message={error} />
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <input className={`${inputCls} max-w-xs`} placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className={`${inputCls} max-w-[180px]`} value={category} onChange={(e) => setCategory(e.target.value as ProductCategory | '')}>
           <option value="">All categories</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" checked={lowStockOnly} onChange={(e) => setLowStockOnly(e.target.checked)} />
+          Low stock only
+        </label>
       </div>
 
       {loading ? <Spinner /> : (
