@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { api } from '../api/client'
+import { createLatestRequest } from '../api/latestRequest'
 import { useAuth } from '../context/AuthContext'
 import { Badge, Card, ErrorText, PageHeader, Spinner, btnCls, btnSecondaryCls, inputCls } from '../components/ui'
 import type { CreateProductRequest, Product, ProductCategory } from '../types'
@@ -25,25 +26,29 @@ export default function Products() {
   const [form, setForm] = useState<CreateProductRequest>(emptyForm)
   const [saving, setSaving] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await api.listProducts({
-        search: search || undefined,
-        category: category || undefined,
-        lowStockOnly,
-        pageSize: 100,
-      })
-      setItems(res.items)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load products')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const requests = useRef(createLatestRequest())
 
-  useEffect(() => { load() }, [search, category, lowStockOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+  const load = useCallback(() => requests.current.run(
+    () => api.listProducts({
+      search: search || undefined,
+      category: category || undefined,
+      lowStockOnly,
+      pageSize: 100,
+    }),
+    {
+      start: () => { setLoading(true); setError(null) },
+      success: (res) => setItems(res.items),
+      error: (e) => setError(e instanceof Error ? e.message : 'Failed to load products'),
+      finish: () => setLoading(false),
+    },
+  ), [search, category, lowStockOnly])
+
+  useEffect(() => {
+    void load()
+    // Ignore pending responses when filters change or the page unmounts.
+    const activeRequests = requests.current
+    return () => activeRequests.invalidate()
+  }, [load])
 
   const openNew = () => { setForm(emptyForm); setEditing('new') }
   const openEdit = (p: Product) => {
