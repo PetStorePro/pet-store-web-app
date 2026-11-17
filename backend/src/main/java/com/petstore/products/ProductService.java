@@ -42,6 +42,7 @@ public class ProductService {
     public PaginatedResponse<ProductResponse> list(
             String search,
             ProductCategory category,
+            boolean lowStockOnly,
             int page,
             int pageSize) {
         String normalizedSearch = search == null || search.isBlank() ? null : search.trim();
@@ -49,6 +50,9 @@ public class ProductService {
             var predicates = new ArrayList<Predicate>();
             if (category != null) {
                 predicates.add(builder.equal(root.get("category"), category));
+            }
+            if (lowStockOnly) {
+                predicates.add(builder.lessThanOrEqualTo(root.<Integer>get("stock"), root.<Integer>get("lowStockThreshold")));
             }
             if (normalizedSearch != null) {
                 String pattern = "%" + normalizedSearch.toLowerCase() + "%";
