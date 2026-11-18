@@ -134,6 +134,12 @@ Paginated endpoints use `page` (1-based, default 1) and `pageSize` (default 50, 
 
 ## Development and verification
 
+### GitHub Actions
+
+The frontend and backend workflows run on pushes to `main` and on pull requests targeting `main`. Frontend CI installs from the lockfile, runs Oxlint, and builds the app; backend CI runs Maven `verify` on Java 21. Dependency Review checks pull-request dependency changes for high- or critical-severity vulnerabilities, and Dependabot checks npm, Maven, and GitHub Actions dependencies weekly.
+
+To require these checks before merging, enable the dependency graph, Dependabot alerts, and Dependabot security updates in the repository's security settings, then configure a `main` branch ruleset to require **Frontend CI / frontend**, **Backend CI / backend**, and **Dependency Review / dependency-review**.
+
 Frontend:
 
 ```powershell
