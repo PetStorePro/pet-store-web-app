@@ -26,6 +26,7 @@ export default function Products() {
 
   const load = async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await api.listProducts({
         search: search || undefined,
@@ -52,10 +53,13 @@ export default function Products() {
     e.preventDefault()
     if (!user || !editing) return
     setSaving(true)
+    setError(null)
     try {
-      const payload = { ...form, expiryDate: form.expiryDate || undefined }
-      if (editing === 'new') await api.createProduct(user, payload)
-      else await api.updateProduct(user, editing.id, payload)
+      if (editing === 'new') {
+        await api.createProduct({ ...form, expiryDate: form.expiryDate || undefined })
+      } else {
+        await api.updateProduct(editing.id, { ...form, expiryDate: form.expiryDate || null })
+      }
       setEditing(null)
       await load()
     } catch (err) {
@@ -67,8 +71,9 @@ export default function Products() {
 
   const handleDelete = async (p: Product) => {
     if (!user || !confirm(`Delete "${p.name}"?`)) return
+    setError(null)
     try {
-      await api.deleteProduct(user, p.id)
+      await api.deleteProduct(p.id)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')

@@ -50,7 +50,7 @@ export default function Inventory() {
     if (!user || !productId) return
     setSaving(true)
     try {
-      await api.adjustStock(user, { productId, type, quantity, reason: reason || undefined })
+      await api.adjustStock({ productId, type, quantity, reason: reason || undefined })
       setShowForm(false)
       setReason('')
       await load()
@@ -152,7 +152,7 @@ export default function Inventory() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
-                  <input required type="number" className={inputCls} value={quantity} onChange={(e) => setQuantity(+e.target.value)} />
+                  <input required type="number" min={type === 'ADJUSTMENT' ? 0 : 1} className={inputCls} value={quantity} onChange={(e) => setQuantity(+e.target.value)} />
                 </div>
               </div>
               <div>

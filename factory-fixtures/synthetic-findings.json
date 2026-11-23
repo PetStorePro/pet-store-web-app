@@ -1,0 +1,38 @@
+{
+  "fixture": {
+    "id": "pet-store-factory-training",
+    "formatVersion": 1,
+    "synthetic": true,
+    "executable": false,
+    "notice": "Training data only. These records are fictional examples, not findings from this repository. Do not apply them as code changes."
+  },
+  "findings": [
+    {
+      "id": "SYNTH-001",
+      "cwe": "CWE-521",
+      "severity": "HIGH",
+      "title": "Synthetic password policy finding",
+      "source": "fixture://authentication/example",
+      "description": "A fictional service accepts credentials that do not meet its configured password policy.",
+      "recommendedRemediation": "Require an appropriately strong password and ensure demo credentials are restricted to local development."
+    },
+    {
+      "id": "SYNTH-002",
+      "cwe": "CWE-209",
+      "severity": "MEDIUM",
+      "title": "Synthetic error disclosure finding",
+      "source": "fixture://api/errors/example",
+      "description": "A fictional API response includes internal diagnostic details that should not be exposed to clients.",
+      "recommendedRemediation": "Return a generic client-safe error response and retain diagnostic details only in protected server logs."
+    },
+    {
+      "id": "SYNTH-003",
+      "cwe": "CWE-862",
+      "severity": "HIGH",
+      "title": "Synthetic authorization finding",
+      "source": "fixture://api/authorization/example",
+      "description": "A fictional endpoint omits a required role check for a privileged operation.",
+      "recommendedRemediation": "Enforce authorization on the server for every privileged operation and verify it with role-based tests."
+    }
+  ]
+}

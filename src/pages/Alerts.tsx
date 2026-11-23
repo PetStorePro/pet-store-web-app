@@ -25,6 +25,7 @@ export default function Alerts() {
 
   const load = async () => {
     setLoading(true)
+    setError(null)
     try {
       const data = await api.listAlerts({
         type: type || undefined,
@@ -41,8 +42,13 @@ export default function Alerts() {
   useEffect(() => { load() }, [type, showResolved]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const resolve = async (id: string) => {
-    await api.resolveAlert(id)
-    await load()
+    setError(null)
+    try {
+      await api.resolveAlert(id)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to resolve alert')
+    }
   }
 
   return (

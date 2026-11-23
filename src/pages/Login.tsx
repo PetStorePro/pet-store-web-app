@@ -39,7 +39,8 @@ export default function Login() {
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
         <p className="mt-4 text-xs text-slate-400 text-center">
-          Mock users: employee / manager / devops — password: <code>demo</code>
+          Demo users: <code>a</code> (employee), <code>aa</code> (manager), <code>aaa</code> (DevOps).
+          Password: <code>a</code> for each.
         </p>
       </form>
     </div>

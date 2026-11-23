@@ -42,7 +42,7 @@ export default function Sales() {
     setSaving(true)
     setLastSale(null)
     try {
-      const sale = await api.registerSale(user, {
+      const sale = await api.registerSale({
         productId,
         quantity,
         customerName: customerName || undefined,

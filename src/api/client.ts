@@ -15,70 +15,145 @@ import type {
   UpdateProductRequest,
   User,
 } from '../types'
+import { API_BASE_URL } from './endpoints'
 import {
-  mockAlerts,
-  mockAuditLogs,
-  mockMovements,
   mockProducts,
-  mockSales,
-  mockUsers,
 } from './mockData'
 
 /**
- * Mock API client.
- * Every method mirrors a real REST endpoint (see src/api/endpoints.ts).
- * To switch to the real backend, replace the bodies with fetch() calls
- * against API_BASE_URL — the signatures stay identical.
+ * API client for the authenticated PetStore backend.
  */
 
-// In-memory stores seeded from mock data (mutated per session)
-const users = [...mockUsers]
+// Mock product catalog retained only for the legacy mock-list method.
 const products = [...mockProducts]
-const sales = [...mockSales]
-const movements = [...mockMovements]
-const alerts = [...mockAlerts]
-const auditLogs = [...mockAuditLogs]
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms))
-let idSeq = 1000
-const nextId = (prefix: string) => `${prefix}${++idSeq}`
-const now = () => new Date().toISOString()
-
-function audit(user: User, action: string, entityType: string, entityId?: string, details?: string) {
-  auditLogs.unshift({
-    id: nextId('l'),
-    userId: user.id,
-    username: user.username,
-    action,
-    entityType,
-    entityId,
-    details,
-    createdAt: now(),
-  })
-}
 
 function paginate<T>(items: T[], page = 1, pageSize = 50): Paginated<T> {
   const start = (page - 1) * pageSize
   return { items: items.slice(start, start + pageSize), total: items.length, page, pageSize }
 }
 
-function generateToken(user: User): string {
-  // Fake JWT — real backend issues a signed JWT via POST /api/auth/login
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-  const payload = btoa(
-    JSON.stringify({ sub: user.id, username: user.username, role: user.role, exp: Date.now() + 3600_000 }),
-  )
-  return `${header}.${payload}.mocksignature`
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object'
+}
+
+async function authenticatedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = localStorage.getItem('petstore_token')
+  if (!token) throw new Error('You must sign in to access products')
+
+  const headers = new Headers(init.headers)
+  headers.set('Authorization', `Bearer ${token}`)
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
+  if (!response.ok) {
+    const body = await response.text()
+    let message = `Request failed (HTTP ${response.status})`
+    if (body) {
+      try {
+        const result: unknown = JSON.parse(body)
+        if (isRecord(result)) {
+          for (const key of ['detail', 'message', 'title']) {
+            if (key in result && typeof result[key] === 'string') {
+              message = result[key]
+              break
+            }
+          }
+        }
+      } catch {
+        message = body
+      }
+    }
+    throw new Error(message)
+  }
+  return response
+}
+
+function isProductCategory(value: unknown): value is ProductCategory {
+  return value === 'FOOD' || value === 'MEDICINE' || value === 'TOY' || value === 'ACCESSORY' || value === 'CARE'
+}
+
+function parseProduct(value: unknown): Product {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('id' in value) ||
+    typeof value.id !== 'string' ||
+    !('name' in value) ||
+    typeof value.name !== 'string' ||
+    !('description' in value) ||
+    typeof value.description !== 'string' ||
+    !('category' in value) ||
+    !isProductCategory(value.category) ||
+    !('price' in value) ||
+    typeof value.price !== 'number' ||
+    !('stock' in value) ||
+    typeof value.stock !== 'number' ||
+    !('lowStockThreshold' in value) ||
+    typeof value.lowStockThreshold !== 'number' ||
+    !('createdAt' in value) ||
+    typeof value.createdAt !== 'string' ||
+    !('expiryDate' in value) ||
+    (value.expiryDate !== null && typeof value.expiryDate !== 'string')
+  ) {
+    throw new Error('The server returned an invalid product')
+  }
+  return value as Product
+}
+
+function parseProductPage(value: unknown): Paginated<Product> {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('items' in value) ||
+    !Array.isArray(value.items) ||
+    !('total' in value) ||
+    typeof value.total !== 'number' ||
+    !('page' in value) ||
+    typeof value.page !== 'number' ||
+    !('pageSize' in value) ||
+    typeof value.pageSize !== 'number'
+  ) {
+    throw new Error('The server returned an invalid product list')
+  }
+  return { items: value.items.map(parseProduct), total: value.total, page: value.page, pageSize: value.pageSize }
+}
+
+function isRole(value: unknown): value is User['role'] {
+  return value === 'EMPLOYEE' || value === 'MANAGER' || value === 'DEVOPS'
 }
 
 export function currentUser(): User | null {
   const raw = localStorage.getItem('petstore_token')
   if (!raw) return null
   try {
-    const payload = JSON.parse(atob(raw.split('.')[1]))
-    const user = users.find((u) => u.id === payload.sub)
-    return user ?? null
+    const encodedPayload = raw.split('.')[1]
+    if (!encodedPayload) throw new Error('Invalid token')
+    const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/')
+    const payload: unknown = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')))
+    if (!payload || typeof payload !== 'object') throw new Error('Invalid token')
+
+    const claims = payload as Record<string, unknown>
+    if (
+      typeof claims.sub !== 'string' ||
+      typeof claims.username !== 'string' ||
+      typeof claims.fullName !== 'string' ||
+      !isRole(claims.role) ||
+      typeof claims.exp !== 'number' ||
+      claims.exp <= Math.floor(Date.now() / 1000)
+    ) {
+      throw new Error('Invalid or expired token')
+    }
+
+    return {
+      id: claims.sub,
+      username: claims.username,
+      fullName: claims.fullName,
+      role: claims.role,
+    }
   } catch {
+    localStorage.removeItem('petstore_token')
     return null
   }
 }
@@ -86,14 +161,45 @@ export function currentUser(): User | null {
 export const api = {
   /** POST /api/auth/login — body: LoginRequest */
   async login(req: LoginRequest): Promise<AuthResponse> {
-    await delay()
-    const user = users.find(
-      (u) => u.username === req.username && req.password === 'a',
-    )
-    if (!user) throw new Error('Invalid credentials')
-    const token = generateToken(user)
-    localStorage.setItem('petstore_token', token)
-    return { token, user }
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+
+    let result: unknown
+    try {
+      result = await response.json()
+    } catch {
+      throw new Error(`Login failed (HTTP ${response.status})`)
+    }
+
+    if (!response.ok) {
+      const message =
+        result && typeof result === 'object' && 'message' in result && typeof result.message === 'string'
+          ? result.message
+          : `Login failed (HTTP ${response.status})`
+      throw new Error(message)
+    }
+
+    if (!result || typeof result !== 'object' || !('token' in result) || !('user' in result)) {
+      throw new Error('The server returned an invalid login response')
+    }
+
+    const auth = result as AuthResponse
+    if (
+      typeof auth.token !== 'string' ||
+      !auth.user ||
+      typeof auth.user.id !== 'string' ||
+      typeof auth.user.username !== 'string' ||
+      typeof auth.user.fullName !== 'string' ||
+      !isRole(auth.user.role)
+    ) {
+      throw new Error('The server returned an invalid login response')
+    }
+
+    localStorage.setItem('petstore_token', auth.token)
+    return auth
   },
 
   /** POST /api/auth/logout (client-side: discard token) */
@@ -103,6 +209,23 @@ export const api = {
 
   /** GET /api/products?search=&category=&page=&pageSize= */
   async listProducts(params?: {
+    search?: string
+    category?: ProductCategory
+    page?: number
+    pageSize?: number
+  }): Promise<Paginated<Product>> {
+    const query = new URLSearchParams()
+    if (params?.search) query.set('search', params.search)
+    if (params?.category) query.set('category', params.category)
+    if (params?.page !== undefined) query.set('page', String(params.page))
+    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/products${suffix}`)
+    return parseProductPage(await response.json())
+  },
+
+  /** Mock catalog retained until inventory and sales are connected to the backend. */
+  async listMockProducts(params?: {
     search?: string
     category?: ProductCategory
     page?: number
@@ -120,43 +243,31 @@ export const api = {
 
   /** GET /api/products/{id} */
   async getProduct(id: string): Promise<Product> {
-    await delay(100)
-    const p = products.find((x) => x.id === id)
-    if (!p) throw new Error('Product not found')
-    return p
+    const response = await authenticatedFetch(`/api/products/${encodeURIComponent(id)}`)
+    return parseProduct(await response.json())
   },
 
   /** POST /api/products — body: CreateProductRequest (MANAGER/DEVOPS) */
-  async createProduct(user: User, req: CreateProductRequest): Promise<Product> {
-    await delay()
-    const product: Product = {
-      id: nextId('p'),
-      ...req,
-      stock: 0,
-      createdAt: now(),
-    }
-    products.unshift(product)
-    audit(user, 'PRODUCT_CREATED', 'Product', product.id, product.name)
-    return product
+  async createProduct(req: CreateProductRequest): Promise<Product> {
+    const response = await authenticatedFetch('/api/products', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    })
+    return parseProduct(await response.json())
   },
 
   /** PUT /api/products/{id} — body: UpdateProductRequest (MANAGER/DEVOPS) */
-  async updateProduct(user: User, id: string, req: UpdateProductRequest): Promise<Product> {
-    await delay()
-    const idx = products.findIndex((x) => x.id === id)
-    if (idx === -1) throw new Error('Product not found')
-    products[idx] = { ...products[idx], ...req }
-    audit(user, 'PRODUCT_UPDATED', 'Product', id, products[idx].name)
-    return products[idx]
+  async updateProduct(id: string, req: UpdateProductRequest): Promise<Product> {
+    const response = await authenticatedFetch(`/api/products/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(req),
+    })
+    return parseProduct(await response.json())
   },
 
   /** DELETE /api/products/{id} (MANAGER/DEVOPS) */
-  async deleteProduct(user: User, id: string): Promise<void> {
-    await delay()
-    const idx = products.findIndex((x) => x.id === id)
-    if (idx === -1) throw new Error('Product not found')
-    const [removed] = products.splice(idx, 1)
-    audit(user, 'PRODUCT_DELETED', 'Product', id, removed.name)
+  async deleteProduct(id: string): Promise<void> {
+    await authenticatedFetch(`/api/products/${encodeURIComponent(id)}`, { method: 'DELETE' })
   },
 
   /** GET /api/inventory/movements?productId=&page=&pageSize= */
@@ -165,10 +276,13 @@ export const api = {
     page?: number
     pageSize?: number
   }): Promise<Paginated<StockMovement>> {
-    await delay(150)
-    let items = [...movements].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    if (params?.productId) items = items.filter((m) => m.productId === params.productId)
-    return paginate(items, params?.page, params?.pageSize)
+    const query = new URLSearchParams()
+    if (params?.productId) query.set('productId', params.productId)
+    if (params?.page !== undefined) query.set('page', String(params.page))
+    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/inventory/movements${suffix}`)
+    return response.json() as Promise<Paginated<StockMovement>>
   },
 
   /**
@@ -177,100 +291,49 @@ export const api = {
    * IN adds stock; OUT removes stock; ADJUSTMENT sets absolute stock.
    */
   async adjustStock(
-    user: User,
     req: { productId: string; type: MovementType; quantity: number; reason?: string },
   ): Promise<StockMovement> {
-    await delay()
-    const product = products.find((p) => p.id === req.productId)
-    if (!product) throw new Error('Product not found')
-    const delta = req.type === 'ADJUSTMENT' ? req.quantity - product.stock : req.type === 'IN' ? req.quantity : -Math.abs(req.quantity)
-    const newStock = req.type === 'ADJUSTMENT' ? req.quantity : product.stock + delta
-    product.stock = newStock
-
-    const movement: StockMovement = {
-      id: nextId('m'),
-      productId: product.id,
-      productName: product.name,
-      type: req.type,
-      quantity: req.type === 'ADJUSTMENT' ? delta : req.type === 'IN' ? req.quantity : -Math.abs(req.quantity),
-      reason: req.reason,
-      userId: user.id,
-      username: user.username,
-      createdAt: now(),
-    }
-    movements.unshift(movement)
-    audit(user, 'STOCK_ADJUSTED', 'StockMovement', movement.id, `${product.name}: ${movement.quantity > 0 ? '+' : ''}${movement.quantity}`)
-    if (newStock < 0) {
-      alerts.unshift({
-        id: nextId('a'),
-        type: 'NEGATIVE_STOCK',
-        productId: product.id,
-        productName: product.name,
-        message: `Negative stock detected: ${product.name} is at ${newStock}`,
-        severity: 'CRITICAL',
-        createdAt: now(),
-        resolved: false,
-      })
-    }
-    return movement
+    const response = await authenticatedFetch('/api/inventory/adjustments', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    })
+    return response.json() as Promise<StockMovement>
   },
 
   /** POST /api/sales — body: RegisterSaleRequest */
-  async registerSale(user: User, req: RegisterSaleRequest): Promise<Sale> {
-    await delay()
-    const product = products.find((p) => p.id === req.productId)
-    if (!product) throw new Error('Product not found')
-    if (product.stock < req.quantity) throw new Error(`Not enough stock for ${product.name} (available: ${product.stock})`)
-
-    product.stock -= req.quantity
-    const sale: Sale = {
-      id: nextId('s'),
-      items: [{ productId: product.id, productName: product.name, quantity: req.quantity, unitPrice: product.price }],
-      total: +(product.price * req.quantity).toFixed(2),
-      customerName: req.customerName,
-      userId: user.id,
-      username: user.username,
-      createdAt: now(),
-    }
-    sales.unshift(sale)
-    movements.unshift({
-      id: nextId('m'),
-      productId: product.id,
-      productName: product.name,
-      type: 'SALE',
-      quantity: -req.quantity,
-      reason: `Sale ${sale.id}`,
-      userId: user.id,
-      username: user.username,
-      createdAt: sale.createdAt,
+  async registerSale(req: RegisterSaleRequest): Promise<Sale> {
+    const response = await authenticatedFetch('/api/sales', {
+      method: 'POST',
+      body: JSON.stringify(req),
     })
-    audit(user, 'SALE_REGISTERED', 'Sale', sale.id, `Total ${sale.total}`)
-    return sale
+    return response.json() as Promise<Sale>
   },
 
   /** GET /api/sales?from=&to=&page=&pageSize= */
   async listSales(params?: { from?: string; to?: string; page?: number; pageSize?: number }): Promise<Paginated<Sale>> {
-    await delay(150)
-    let items = [...sales].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    if (params?.from) items = items.filter((s) => s.createdAt >= params.from!)
-    if (params?.to) items = items.filter((s) => s.createdAt <= params.to!)
-    return paginate(items, params?.page, params?.pageSize)
+    const query = new URLSearchParams()
+    if (params?.from) query.set('from', params.from)
+    if (params?.to) query.set('to', params.to)
+    if (params?.page !== undefined) query.set('page', String(params.page))
+    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/sales${suffix}`)
+    return response.json() as Promise<Paginated<Sale>>
   },
 
   /** GET /api/alerts?type=&resolved= */
   async listAlerts(params?: { type?: Alert['type']; resolved?: boolean }): Promise<Alert[]> {
-    await delay(150)
-    let items = [...alerts].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    if (params?.type) items = items.filter((a) => a.type === params.type)
-    if (params?.resolved !== undefined) items = items.filter((a) => a.resolved === params.resolved)
-    return items
+    const query = new URLSearchParams()
+    if (params?.type) query.set('type', params.type)
+    if (params?.resolved !== undefined) query.set('resolved', String(params.resolved))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/alerts${suffix}`)
+    return response.json() as Promise<Alert[]>
   },
 
   /** PATCH /api/alerts/{id}/resolve */
   async resolveAlert(id: string): Promise<void> {
-    await delay(100)
-    const alert = alerts.find((a) => a.id === id)
-    if (alert) alert.resolved = true
+    await authenticatedFetch(`/api/alerts/${encodeURIComponent(id)}/resolve`, { method: 'PATCH' })
   },
 
   /** GET /api/audit-logs?userId=&action=&page=&pageSize= — MANAGER only */
@@ -280,38 +343,19 @@ export const api = {
     page?: number
     pageSize?: number
   }): Promise<Paginated<AuditLog>> {
-    await delay(200)
-    let items = [...auditLogs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    if (params?.userId) items = items.filter((l) => l.userId === params.userId)
-    if (params?.action) items = items.filter((l) => l.action === params.action)
-    return paginate(items, params?.page, params?.pageSize)
+    const query = new URLSearchParams()
+    if (params?.userId) query.set('userId', params.userId)
+    if (params?.action) query.set('action', params.action)
+    if (params?.page !== undefined) query.set('page', String(params.page))
+    if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await authenticatedFetch(`/api/audit-logs${suffix}`)
+    return response.json() as Promise<Paginated<AuditLog>>
   },
 
   /** GET /api/dashboard/summary — MANAGER only */
   async dashboardSummary(): Promise<DashboardSummary> {
-    await delay(300)
-    const today = new Date().toDateString()
-    const salesToday = sales.filter((s) => new Date(s.createdAt).toDateString() === today)
-    const unitsByProduct = new Map<string, { name: string; units: number }>()
-    for (const s of sales) {
-      for (const item of s.items) {
-        const e = unitsByProduct.get(item.productId) ?? { name: item.productName, units: 0 }
-        e.units += item.quantity
-        unitsByProduct.set(item.productId, e)
-      }
-    }
-    return {
-      totalProducts: products.length,
-      totalStockValue: +products.reduce((sum, p) => sum + p.stock * p.price, 0).toFixed(2),
-      salesToday: salesToday.length,
-      lowStockCount: products.filter((p) => p.stock <= p.lowStockThreshold).length,
-      expiringCount: products.filter((p) => p.category === 'MEDICINE' && p.expiryDate && new Date(p.expiryDate) < new Date(Date.now() + 30 * 86_400_000)).length,
-      openAlerts: alerts.filter((a) => !a.resolved).length,
-      recentSales: sales.slice(0, 5),
-      topProducts: [...unitsByProduct.entries()]
-        .map(([productId, v]) => ({ productId, productName: v.name, unitsSold: v.units }))
-        .sort((a, b) => b.unitsSold - a.unitsSold)
-        .slice(0, 5),
-    }
+    const response = await authenticatedFetch('/api/dashboard/summary')
+    return response.json() as Promise<DashboardSummary>
   },
 }
