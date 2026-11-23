@@ -29,3 +29,12 @@ jobs:
 
       - name: Verify backend
         run: mvn -B -ntp -f backend/pom.xml verify
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t petstore-backend backend
