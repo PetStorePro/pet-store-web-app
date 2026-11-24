@@ -14,7 +14,7 @@ export default function Products() {
   const { user } = useAuth()
   const canManage = user?.role === 'MANAGER' || user?.role === 'DEVOPS'
 
-  const [items, setItems] = useState<Product[]>([])
+  const [items, setItems] = useState<Product[] | null>(null)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<ProductCategory | ''>('')
   const [lowStockOnly, setLowStockOnly] = useState(false)
@@ -38,7 +38,10 @@ export default function Products() {
     }).then((res) => {
       if (active) setItems(res.items)
     }).catch((e) => {
-      if (active) setError(e instanceof Error ? e.message : 'Failed to load products')
+      if (active) {
+        setItems(null)
+        setError(e instanceof Error ? e.message : 'Failed to load products')
+      }
     }).finally(() => {
       if (active) setLoading(false)
     })
@@ -102,7 +105,7 @@ export default function Products() {
         </label>
       </div>
 
-      {loading ? <Spinner /> : (
+      {loading ? <Spinner /> : items && (
         <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-left">

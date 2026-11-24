@@ -44,6 +44,16 @@ class ProductFilteringTest {
     }
 
     @Test
+    void lowStockFlagWorksWithoutSearchOrCategory() throws Exception {
+        mvc.perform(get("/api/products").param("lowStockOnly", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(4))
+                .andExpect(jsonPath("$.items.length()").value(4))
+                .andExpect(jsonPath("$.items[0].name").value("B Fish pellets"))
+                .andExpect(jsonPath("$.items[2].name").value("D Fish toy"));
+    }
+
+    @Test
     void omittedOrFalseFlagIncludesProductsAboveTheirThreshold() throws Exception {
         mvc.perform(get("/api/products").param("search", "fish").param("category", "FOOD"))
                 .andExpect(status().isOk())
