@@ -39,6 +39,7 @@ jobs:
         run: npm run build
  
   docker:
+    name: frontend-image
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
