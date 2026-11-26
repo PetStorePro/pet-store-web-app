@@ -9,7 +9,7 @@
  *   POST   /api/auth/login              body: LoginRequest            -> AuthResponse
  *
  * PRODUCTS
- *   GET    /api/products                query: ?search=&category=&page=&pageSize=
+ *   GET    /api/products                query: ?search=&category=&lowStockOnly=&page=&pageSize=
  *   GET    /api/products/{id}
  *   POST   /api/products                body: CreateProductRequest    -> Product
  *   PUT    /api/products/{id}           body: UpdateProductRequest    -> Product

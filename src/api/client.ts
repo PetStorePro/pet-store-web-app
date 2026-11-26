@@ -207,16 +207,18 @@ export const api = {
     localStorage.removeItem('petstore_token')
   },
 
-  /** GET /api/products?search=&category=&page=&pageSize= */
+  /** GET /api/products?search=&category=&lowStockOnly=&page=&pageSize= */
   async listProducts(params?: {
     search?: string
     category?: ProductCategory
+    lowStockOnly?: boolean
     page?: number
     pageSize?: number
   }): Promise<Paginated<Product>> {
     const query = new URLSearchParams()
     if (params?.search) query.set('search', params.search)
     if (params?.category) query.set('category', params.category)
+    if (params?.lowStockOnly) query.set('lowStockOnly', 'true')
     if (params?.page !== undefined) query.set('page', String(params.page))
     if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
