@@ -27,11 +27,13 @@ Source contract: `src/api/endpoints.ts` (frontend) and `src/types/index.ts`.
 
 | Method | Path | Params / Body | Response |
 |---|---|---|---|
-| GET | `/api/products` | `?search=&category=&page=&pageSize=` | `Paginated<Product>` |
+| GET | `/api/products` | `?search=&category=&lowStockOnly=&page=&pageSize=` | `Paginated<Product>` |
 | GET | `/api/products/{id}` | — | `Product` |
 | POST | `/api/products` | `CreateProductRequest` | `Product` |
 | PUT | `/api/products/{id}` | `UpdateProductRequest` | `Product` |
 | DELETE | `/api/products/{id}` | — | 204 |
+
+`lowStockOnly` defaults to `false`. When true, only products with `stock <= lowStockThreshold` are included in the results and total.
 
 **Product:**
 

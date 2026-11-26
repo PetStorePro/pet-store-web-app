@@ -37,13 +37,14 @@ public class ProductController {
     }
 
     @GetMapping
-    @Operation(summary = "List products", description = "Search by name/description or category. Results are paginated (pageSize maximum 100).")
+    @Operation(summary = "List products", description = "Filter by name/description, category, or low stock. Results are paginated (pageSize maximum 100).")
     public PaginatedResponse<ProductResponse> list(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) ProductCategory category,
+            @RequestParam(defaultValue = "false") boolean lowStockOnly,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(100) int pageSize) {
-        return products.list(search, category, page, pageSize);
+        return products.list(search, category, lowStockOnly, page, pageSize);
     }
 
     @GetMapping("/{id}")
