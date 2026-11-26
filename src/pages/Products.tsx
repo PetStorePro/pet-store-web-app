@@ -14,34 +14,39 @@ export default function Products() {
   const { user } = useAuth()
   const canManage = user?.role === 'MANAGER' || user?.role === 'DEVOPS'
 
-  const [items, setItems] = useState<Product[]>([])
+  const [items, setItems] = useState<Product[] | null>(null)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<ProductCategory | ''>('')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
   const [form, setForm] = useState<CreateProductRequest>(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [catalogRevision, setCatalogRevision] = useState(0)
 
-  const load = async () => {
+  useEffect(() => {
+    let active = true
     setLoading(true)
+    setItems(null)
     setError(null)
-    try {
-      const res = await api.listProducts({
-        search: search || undefined,
-        category: category || undefined,
-        pageSize: 100,
-      })
-      setItems(res.items)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load products')
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  useEffect(() => { load() }, [search, category]) // eslint-disable-line react-hooks/exhaustive-deps
+    api.listProducts({
+      search: search || undefined,
+      category: category || undefined,
+      lowStockOnly,
+      pageSize: 100,
+    }).then((res) => {
+      if (active) setItems(res.items)
+    }).catch((e: unknown) => {
+      if (active) setError(e instanceof Error ? e.message : 'Failed to load products')
+    }).finally(() => {
+      if (active) setLoading(false)
+    })
+
+    return () => { active = false }
+  }, [search, category, lowStockOnly, catalogRevision])
 
   const openNew = () => { setForm(emptyForm); setEditing('new') }
   const openEdit = (p: Product) => {
@@ -61,7 +66,7 @@ export default function Products() {
         await api.updateProduct(editing.id, { ...form, expiryDate: form.expiryDate || null })
       }
       setEditing(null)
-      await load()
+      setCatalogRevision((revision) => revision + 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -74,7 +79,7 @@ export default function Products() {
     setError(null)
     try {
       await api.deleteProduct(p.id)
-      await load()
+      setCatalogRevision((revision) => revision + 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
     }
@@ -88,15 +93,19 @@ export default function Products() {
 
       <ErrorText message={error} />
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <input className={`${inputCls} max-w-xs`} placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className={`${inputCls} max-w-[180px]`} value={category} onChange={(e) => setCategory(e.target.value as ProductCategory | '')}>
           <option value="">All categories</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" checked={lowStockOnly} onChange={(e) => setLowStockOnly(e.target.checked)} />
+          Low stock only
+        </label>
       </div>
 
-      {loading ? <Spinner /> : (
+      {loading ? <Spinner /> : items && (
         <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-left">
